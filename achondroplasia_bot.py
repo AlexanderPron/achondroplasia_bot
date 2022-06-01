@@ -129,13 +129,13 @@ def set_surname(message):
 
 def set_email(message):
     msg_instance = bot.send_message(message.chat.id, "Укажите Ваш e-mail")
-    user_data_for_join[message.chat.id] = {"surname": message.text}
+    user_data_for_join[message.chat.id]["surname"] = message.text
     bot.register_next_step_handler(msg_instance, end_reg)
 
 
 def end_reg(message):
     if validators.email(message.text):
-        user_data_for_join[message.chat.id] = {"email": message.text}
+        user_data_for_join[message.chat.id]["email"] = message.text
         bot.send_message(CHANNEL_ID, f"К нам присоединился новый участник - {str(user_data_for_join[message.chat.id])}")
         bot.send_message(MANAGER_ID, f"У нас новичок - {str(user_data_for_join[message.chat.id])}")
         keyboard = InlineKeyboardMarkup()
