@@ -17,15 +17,13 @@ import validators
 
 DEV_SETTINGS = "./dev_settings.ini"
 SETTINGS = "./settings.ini"
+# TODO Переделать получение текста правил из внешнего файла
 RULES = "<b>Тут будут правила канала:</b> \n \
     <b>-</b> Не флудить \n \
     <b>-</b> Не оскорблять \n \
     <b>-</b> Не ругаться \n \
     <b>-</b> Не рекламировать"
 CURR_SETTINGS = ""
-CHANNEL_ID = "-1001382027476"
-MANAGER_ID = "5174228279"
-INVITE_CHANNEL_LINK = "https://t.me/+xn49869KEOE1NjZi"
 config = configparser.ConfigParser()
 if os.path.isfile(DEV_SETTINGS):
     config.read(DEV_SETTINGS)
@@ -35,14 +33,15 @@ else:
     CURR_SETTINGS = SETTINGS
 try:
     TOKEN = config["Telegram"]["token"]
+    CHANNEL_ID = config["Telegram"]["channel_id"]
+    MANAGER_ID = config["Telegram"]["manager_id"]
+    INVITE_CHANNEL_LINK = config["Telegram"]["invite_channel_link"]
 except Exception:
     print(f"Something wrong with {CURR_SETTINGS}")
     exit()
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
 logger = telebot.logger
 telebot.logger.setLevel(logging.WARNING)
-
-# bot.forward_message
 
 
 @bot.message_handler(commands=["help"])
@@ -53,42 +52,6 @@ def help_cmd(message):
 @bot.message_handler(commands=["rules"])
 def show_rules(message):
     bot.send_message(message.chat.id, text=RULES, parse_mode="html")
-
-
-def set_name(message):
-    global user_data_for_join
-    user_data_for_join = {}
-    msg_instance = bot.send_message(message.chat.id, "Укажите Ваше имя")
-    bot.register_next_step_handler(msg_instance, set_surname)
-
-
-def set_surname(message):
-    msg_instance = bot.send_message(message.chat.id, "Укажите Вашу фамилию")
-    user_data_for_join["name"] = message.text
-    bot.register_next_step_handler(msg_instance, set_email)
-
-
-def set_email(message):
-    msg_instance = bot.send_message(message.chat.id, "Укажите Ваш e-mail")
-    user_data_for_join["surname"] = message.text
-    bot.register_next_step_handler(msg_instance, end_reg)
-
-
-def end_reg(message):
-    if validators.email(message.text):
-        user_data_for_join["email"] = message.text
-        bot.send_message(CHANNEL_ID, f"К нам присоединился новый участник - {str(user_data_for_join)}")
-        bot.send_message(MANAGER_ID, f"У нас новичок - {str(user_data_for_join)}")
-        keyboard = InlineKeyboardMarkup()
-        keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
-        bot.send_message(
-            message.chat.id,
-            f"Прекрасно! Приглашение на наш канал по ссылке - {INVITE_CHANNEL_LINK}",
-            reply_markup=keyboard
-        )
-    else:
-        bot.send_message(message.chat.id, "Не корректный email!! Попробуйте ввести ещё разок! (example@mail.ru)")
-        bot.register_next_step_handler(message, end_reg)
 
 
 @bot.message_handler(commands=["start"])
@@ -123,16 +86,6 @@ def start_cmd(message):
         )
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("cmd_"))
-def cmd_func(call: CallbackQuery):
-    if call.data == "cmd_START":
-        start_cmd(call.message)
-    elif call.data == "cmd_RULES":
-        show_rules(call.message)
-    elif call.data == "cmd_JOIN":
-        set_name(call.message)
-
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("join_group_btn"))
 def start_join_group(call: CallbackQuery):
     keyboard = InlineKeyboardMarkup()
@@ -148,6 +101,55 @@ def start_join_group(call: CallbackQuery):
 правилами канала и рассказать немного о себе. ",
         reply_markup=keyboard,
     )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cmd_"))
+def cmd_func(call: CallbackQuery):
+    if call.data == "cmd_START":
+        start_cmd(call.message)
+    elif call.data == "cmd_RULES":
+        show_rules(call.message)
+    elif call.data == "cmd_JOIN":
+        set_name(call.message)
+
+
+# =========== Блок ввода информации о пользователе =================
+def set_name(message):
+    global user_data_for_join
+    user_data_for_join[message.chat.id] = {}
+    msg_instance = bot.send_message(message.chat.id, "Укажите Ваше имя")
+    bot.register_next_step_handler(msg_instance, set_surname)
+
+
+def set_surname(message):
+    msg_instance = bot.send_message(message.chat.id, "Укажите Вашу фамилию")
+    user_data_for_join[message.chat.id] = {"name": message.text}
+    bot.register_next_step_handler(msg_instance, set_email)
+
+
+def set_email(message):
+    msg_instance = bot.send_message(message.chat.id, "Укажите Ваш e-mail")
+    user_data_for_join[message.chat.id] = {"surname": message.text}
+    bot.register_next_step_handler(msg_instance, end_reg)
+
+
+def end_reg(message):
+    if validators.email(message.text):
+        user_data_for_join[message.chat.id] = {"email": message.text}
+        bot.send_message(CHANNEL_ID, f"К нам присоединился новый участник - {str(user_data_for_join[message.chat.id])}")
+        bot.send_message(MANAGER_ID, f"У нас новичок - {str(user_data_for_join[message.chat.id])}")
+        keyboard = InlineKeyboardMarkup()
+        keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+        bot.send_message(
+            message.chat.id,
+            "Прекрасно! Запрос на вступление в группу отправлен нашему менеджеру. После изучения анкеты он с Вами \
+свяжется по почте или в Telegram",
+            reply_markup=keyboard
+        )
+    else:
+        bot.send_message(message.chat.id, "Не корректный email!! Попробуйте ввести ещё разок! (example@mail.ru)")
+        bot.register_next_step_handler(message, end_reg)
+# =========== Блок ввода информации о пользователе =================
 
 
 def main():
