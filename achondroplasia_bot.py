@@ -23,6 +23,9 @@ RULES = "<b>Тут будут правила канала:</b> \n \
     <b>-</b> Не оскорблять \n \
     <b>-</b> Не ругаться \n \
     <b>-</b> Не рекламировать"
+ASK_Q_TEXT = "Задайте интересующий Вас вопрос в одном сообщении.\n \
+В нём же можете оставить свои контактные данные для получения ответа (email, моб.телефон и пр.) \n \
+Также ответ придёт Вам в этот чат"
 CURR_SETTINGS = ""
 config = configparser.ConfigParser()
 if os.path.isfile(DEV_SETTINGS):
@@ -33,15 +36,20 @@ else:
     CURR_SETTINGS = SETTINGS
 try:
     TOKEN = config["Telegram"]["token"]
-    CHANNEL_ID = config["Telegram"]["channel_id"]
-    MANAGER_ID = config["Telegram"]["manager_id"]
-    INVITE_CHANNEL_LINK = config["Telegram"]["invite_channel_link"]
+    MANAGEMENT_IDS = config["Telegram"]["management_ids"]
 except Exception:
     print(f"Something wrong with {CURR_SETTINGS}")
     exit()
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
 logger = telebot.logger
 telebot.logger.setLevel(logging.WARNING)
+
+
+def dict_to_formatstr(dic):
+    formated_str = ""
+    for dic_key in dic:
+        formated_str += f"<b>{dic_key}:</b> {dic.get(dic_key)}\n"
+    return formated_str
 
 
 @bot.message_handler(commands=["help"])
@@ -123,7 +131,8 @@ def set_name(message):
 
 def set_surname(message):
     msg_instance = bot.send_message(message.chat.id, "Укажите Вашу фамилию")
-    user_data_for_join[message.chat.id] = {"name": message.text}
+    user_data_for_join[message.chat.id] = {"telegram": f"@{message.json['from']['username']}"}
+    user_data_for_join[message.chat.id]["name"] = message.text
     bot.register_next_step_handler(msg_instance, set_email)
 
 
@@ -136,20 +145,46 @@ def set_email(message):
 def end_reg(message):
     if validators.email(message.text):
         user_data_for_join[message.chat.id]["email"] = message.text
-        bot.send_message(CHANNEL_ID, f"К нам присоединился новый участник - {str(user_data_for_join[message.chat.id])}")
-        bot.send_message(MANAGER_ID, f"У нас новичок - {str(user_data_for_join[message.chat.id])}")
+        for id in MANAGEMENT_IDS.split(","):
+            bot.send_message(
+                id,
+                f"Новая заявка на вступление в группу \n{dict_to_formatstr(user_data_for_join[message.chat.id])}",
+                parse_mode="html",
+            )
         keyboard = InlineKeyboardMarkup()
         keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
         bot.send_message(
             message.chat.id,
             "Прекрасно! Запрос на вступление в группу отправлен нашему менеджеру. После изучения анкеты он с Вами \
 свяжется по почте или в Telegram",
-            reply_markup=keyboard
+            reply_markup=keyboard,
         )
     else:
         bot.send_message(message.chat.id, "Не корректный email!! Попробуйте ввести ещё разок! (example@mail.ru)")
         bot.register_next_step_handler(message, end_reg)
-# =========== Блок ввода информации о пользователе =================
+
+
+# =========== Конец блока ввода информации о пользователе =================
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("ask_question"))
+def start_question(call: CallbackQuery):
+    msg_instance = bot.send_message(call.message.chat.id, ASK_Q_TEXT)
+    bot.register_next_step_handler(msg_instance, send_question)
+
+
+def send_question(message):
+    for id in MANAGEMENT_IDS.split(","):
+        bot.send_message(
+            id,
+            f'<b>Новый вопрос от @{message.json["from"]["username"]}!</b> \n"{message.text}"\n',
+            parse_mode="html",
+        )
+    bot.send_message(
+        message.chat.id,
+        "Ваш вопрос отправлен нашему менеджеру. Очень скоро Вам ответят \
+сюда или одним из предоставленных вами способом",
+    )
 
 
 def main():
