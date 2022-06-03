@@ -175,16 +175,25 @@ def start_question(call: CallbackQuery):
 
 def send_question(message):
     for id in MANAGEMENT_IDS.split(","):
-        bot.send_message(
-            id,
-            f'<b>Новый вопрос от @{message.json["from"]["username"]}!</b> \n"{message.text}"\n',
-            parse_mode="html",
-        )
+        b_mes = bot.forward_message(id, message.chat.id, message.id)
+        # b_mes = bot.send_message(
+        #     id,
+        #     f'<b>Новый вопрос от @{message.json["from"]["username"]}!</b> \n"{message.text}"\n',
+        #     parse_mode="html",
+        # )
     bot.send_message(
         message.chat.id,
         "Ваш вопрос отправлен нашему менеджеру. Очень скоро Вам ответят \
-сюда или одним из предоставленных вами способом",
+сюда или одним из предоставленных вами способов",
     )
+    print(b_mes)
+
+
+# @bot.message_handler(func=lambda call: call.reply_to_message)
+@bot.message_handler(chat_types=["channel", "groups"])
+def test(message):
+    print("+++++++++++=====Работает!!!!!++++____________")
+    print(message)
 
 
 def main():
