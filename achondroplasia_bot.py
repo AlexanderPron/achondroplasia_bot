@@ -43,6 +43,7 @@ except Exception:
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
 logger = telebot.logger
 telebot.logger.setLevel(logging.WARNING)
+# telebot.logger.setLevel(logging.DEBUG)
 
 
 def dict_to_formatstr(dic):
@@ -175,7 +176,7 @@ def start_question(call: CallbackQuery):
 
 def send_question(message):
     for id in MANAGEMENT_IDS.split(","):
-        b_mes = bot.forward_message(id, message.chat.id, message.id)
+        bot.forward_message(id, message.chat.id, message.id)
         # b_mes = bot.send_message(
         #     id,
         #     f'<b>Новый вопрос от @{message.json["from"]["username"]}!</b> \n"{message.text}"\n',
@@ -186,14 +187,13 @@ def send_question(message):
         "Ваш вопрос отправлен нашему менеджеру. Очень скоро Вам ответят \
 сюда или одним из предоставленных вами способов",
     )
-    print(b_mes)
 
 
 # @bot.message_handler(func=lambda call: call.reply_to_message)
-@bot.message_handler(chat_types=["channel", "groups"])
+@bot.channel_post_handler(func=lambda message: message.reply_to_message is not None)
 def test(message):
-    print("+++++++++++=====Работает!!!!!++++____________")
-    print(message)
+    answer = f"На ваш вопрос {message.reply_to_message.text} дан ответ \n{message.text}"
+    bot.send_message(chat_id=message.reply_to_message.forward_from.id, text=answer)
 
 
 def main():
