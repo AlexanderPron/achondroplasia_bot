@@ -134,3 +134,4 @@ dmypy.json
 
 # My adds
 dev_settings.ini
+bot[*].log

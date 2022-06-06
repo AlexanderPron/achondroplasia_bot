@@ -13,32 +13,50 @@ import json
 import configparser
 import os.path
 import validators
+import io
 
 
 DEV_SETTINGS = "./dev_settings.ini"
 SETTINGS = "./settings.ini"
-# TODO Переделать получение текста правил из внешнего файла
-RULES = "<b>Тут будут правила канала:</b> \n \
-    <b>-</b> Не флудить \n \
-    <b>-</b> Не оскорблять \n \
-    <b>-</b> Не ругаться \n \
-    <b>-</b> Не рекламировать"
 ASK_Q_TEXT = "Задайте интересующий Вас вопрос в одном сообщении.\n \
 В нём же можете оставить свои контактные данные для получения ответа (email, моб.телефон и пр.) \n \
 Также ответ придёт Вам в этот чат"
-CURR_SETTINGS = ""
+curr_settings = ""
+default_log_file = "bot.log"
+default_rules_file = "rules.txt"
+
+
+def add_log(msg_text, msg_type="info", log_file=default_log_file):
+    with io.open(log_file, "a", encoding='utf-8') as f:
+        record = f'\n[{datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")}] {msg_type.upper()}: {msg_text}'
+        f.write(record)
+
+
 config = configparser.ConfigParser()
 if os.path.isfile(DEV_SETTINGS):
     config.read(DEV_SETTINGS)
-    CURR_SETTINGS = DEV_SETTINGS
+    curr_settings = DEV_SETTINGS
 else:
     config.read(SETTINGS)
-    CURR_SETTINGS = SETTINGS
+    curr_settings = SETTINGS
+try:
+    log_file = config["BotData"]["log_file"]
+except Exception:
+    log_file = default_log_file
+if not os.path.isfile(log_file):
+    open(log_file, "w+")
+try:
+    rules_file = config["BotData"]["rules_file"]
+except Exception:
+    rules_file = default_rules_file
+if not os.path.isfile(rules_file):
+    open(rules_file, "w+")
 try:
     TOKEN = config["Telegram"]["token"]
     MANAGEMENT_IDS = config["Telegram"]["management_ids"]
 except Exception:
-    print(f"Something wrong with {CURR_SETTINGS}")
+    print(f"Something wrong with {curr_settings}")
+    add_log(f"Something wrong with {curr_settings}", msg_type="error", log_file=log_file)
     exit()
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
 logger = telebot.logger
@@ -60,7 +78,22 @@ def help_cmd(message):
 
 @bot.message_handler(commands=["rules"])
 def show_rules(message):
-    bot.send_message(message.chat.id, text=RULES, parse_mode="html")
+    if os.path.isfile(rules_file):
+        with io.open(rules_file, encoding='utf-8') as f:
+            rules_text = f.read()
+    else:
+        rules_text = "Правила пока не указаны, но скоро они появятся"
+        add_log(
+            msg_text=f"{rules_file}: file not found. Check your {curr_settings}",
+            msg_type="warning",
+            log_file=log_file
+        )
+    if rules_text:
+        bot.send_message(message.chat.id, text=rules_text, parse_mode="html")
+    else:
+        rules_text = "Правила пока не указаны, но скоро они появятся"
+        bot.send_message(message.chat.id, text=rules_text, parse_mode="html")
+        add_log(msg_text=f"{rules_file}: file is empty", log_file=log_file)
 
 
 @bot.message_handler(commands=["start"])
@@ -125,6 +158,7 @@ def cmd_func(call: CallbackQuery):
 # =========== Блок ввода информации о пользователе =================
 def set_name(message):
     global user_data_for_join
+    user_data_for_join = {}
     user_data_for_join[message.chat.id] = {}
     msg_instance = bot.send_message(message.chat.id, "Укажите Ваше имя")
     bot.register_next_step_handler(msg_instance, set_surname)
@@ -191,9 +225,10 @@ def send_question(message):
 
 # @bot.message_handler(func=lambda call: call.reply_to_message)
 @bot.channel_post_handler(func=lambda message: message.reply_to_message is not None)
-def test(message):
-    answer = f"На ваш вопрос {message.reply_to_message.text} дан ответ \n{message.text}"
-    bot.send_message(chat_id=message.reply_to_message.forward_from.id, text=answer)
+def send_answer(message):
+    if message.reply_to_message.forward_from:
+        answer = f"На ваш вопрос {message.reply_to_message.text} дан ответ \n{message.text}"
+        bot.send_message(chat_id=message.reply_to_message.forward_from.id, text=answer)
 
 
 def main():
