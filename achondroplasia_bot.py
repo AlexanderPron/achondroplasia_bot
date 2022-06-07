@@ -24,10 +24,22 @@ ASK_Q_TEXT = "Задайте интересующий Вас вопрос в о�
 curr_settings = ""
 default_log_file = "bot.log"
 default_rules_file = "rules.txt"
+default_google_forms_link = "https://workspace.google.com/intl/ru/products/forms/"
+start_text_file = "start_text.txt"
+acho_info_file = "acho_info.txt"
+patient_register_file = "patient_register_start_msg.txt"
+DEFAULT_START_TEXT = "<b>Выберите интересующую вас опцию</b>"
+DEFAULT_ACHO_INFO = "<b>Ахондроплазия</b> - это известное с древности наследственное заболевание человека, \
+проявляющееся в нарушении процессов энхондрального окостенения (вероятно, в результате дефектов \
+окислительного фосфорилирования) на фоне нормальных эпостального и периостального окостенений, \
+что ведет к карликовости за счет недоразвития длинных костей; характеризуется наличием \
+врождённых аномалий, в частности врождённого стеноза позвоночного канала"
+DEFAULT_PATIENT_REGISTER_MSG = "Мы будем рады принять и предложить разные программы и всестороннюю помощь и поддержку. \
+Приглашаем присоединиться к чатам пациентского общения и к информационному каналу организации «Немаленькие люди»"
 
 
 def add_log(msg_text, msg_type="info", log_file=default_log_file):
-    with io.open(log_file, "a", encoding='utf-8') as f:
+    with io.open(log_file, "a", encoding="utf-8") as f:
         record = f'\n[{datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")}] {msg_type.upper()}: {msg_text}'
         f.write(record)
 
@@ -58,6 +70,13 @@ except Exception:
     print(f"Something wrong with {curr_settings}")
     add_log(f"Something wrong with {curr_settings}", msg_type="error", log_file=log_file)
     exit()
+try:
+    if config["Google"]["forms_link"]:
+        google_forms_link = config["Google"]["forms_link"]
+    else:
+        google_forms_link = default_google_forms_link
+except Exception:
+    google_forms_link = default_google_forms_link
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
 logger = telebot.logger
 telebot.logger.setLevel(logging.WARNING)
@@ -79,14 +98,12 @@ def help_cmd(message):
 @bot.message_handler(commands=["rules"])
 def show_rules(message):
     if os.path.isfile(rules_file):
-        with io.open(rules_file, encoding='utf-8') as f:
+        with io.open(rules_file, encoding="utf-8") as f:
             rules_text = f.read()
     else:
         rules_text = "Правила пока не указаны, но скоро они появятся"
         add_log(
-            msg_text=f"{rules_file}: file not found. Check your {curr_settings}",
-            msg_type="warning",
-            log_file=log_file
+            msg_text=f"{rules_file}: file not found. Check your {curr_settings}", msg_type="warning", log_file=log_file
         )
     if rules_text:
         bot.send_message(message.chat.id, text=rules_text, parse_mode="html")
@@ -100,49 +117,183 @@ def show_rules(message):
 def start_cmd(message):
     global user_data_for_join
     user_data_for_join = {}
-    start_keyboard = InlineKeyboardMarkup()
+    start_keyboard = InlineKeyboardMarkup(row_width=1)
     # start_keyboard = ReplyKeyboardMarkup()
-    start_keyboard.row(
-        InlineKeyboardButton("Хочу в группу", callback_data="join_group_btn"),
+    start_keyboard.add(
+        InlineKeyboardButton("Что такое ахондроплазия", callback_data="about_acho"),
+        InlineKeyboardButton("Регистрация новых пациентов", callback_data="register_patient"),
+        InlineKeyboardButton("Регистрация специалистов", callback_data="register_specialist"),
+        InlineKeyboardButton("Подписаться на новостной канал", callback_data="join_news_channel"),
+        # InlineKeyboardButton("Вступить в группу", callback_data="join_group_btn"),
         InlineKeyboardButton("Задать вопрос", callback_data="ask_question"),
-        # KeyboardButton("Хочу в группу"),
+        InlineKeyboardButton("Отправить контент для публикации", callback_data="send_content"),
+        InlineKeyboardButton("Сделать пожертвование", callback_data="donate"),
+        InlineKeyboardButton("Предложить сотрудничество", callback_data="partnership"),
         # KeyboardButton("Задать вопрос"),
-    )
-    start_keyboard.row(
-        InlineKeyboardButton("Поделиться", callback_data="send_info"),
-        InlineKeyboardButton("Регистрация", callback_data="register"),
-        # KeyboardButton("Поделиться"),
-        # KeyboardButton("Регистрация"),
     )
     if message.from_user.is_bot:
         bot.send_message(
             message.chat.id,
-            "Выберите действие",
+            text=DEFAULT_START_TEXT,
             reply_markup=start_keyboard,
+            parse_mode="html",
         )
     else:
+        if os.path.isfile(start_text_file):
+            with io.open(start_text_file, encoding="utf-8") as f:
+                start_text = f.read()
+        else:
+            start_text = DEFAULT_START_TEXT
+            add_log(
+                msg_text=f"{start_text_file}: file not found. Using default message",
+                msg_type="warning",
+                log_file=log_file,
+            )
         bot.send_message(
             message.chat.id,
-            f"Текст приветствия, {message.from_user.first_name}!",
+            text=start_text,
             reply_markup=start_keyboard,
+            parse_mode="html",
         )
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("join_group_btn"))
-def start_join_group(call: CallbackQuery):
-    keyboard = InlineKeyboardMarkup()
-    keyboard.row(
-        InlineKeyboardButton("Правила канала", callback_data="cmd_RULES"),
-        InlineKeyboardButton("Согласен с правилами, хочу вступить", callback_data="cmd_JOIN"),
+@bot.callback_query_handler(func=lambda call: call.data.startswith("about_acho"))
+def about_acho(call: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.add(
+        InlineKeyboardButton(
+            "Перейти на сайт achondroplasia.ru",
+            callback_data="join_news_channel",
+            url="https://achondroplasia.ru/",
+        ),
+        InlineKeyboardButton(
+            "Подписаться на новостной канал",
+            callback_data="join_news_channel",
+            url="https://t.me/achondroplasia_ru",
+        ),
+        InlineKeyboardButton("Задать вопрос", callback_data="ask_question"),
+        InlineKeyboardButton("Сделать пожертвование", callback_data="donate"),
+        InlineKeyboardButton("Предложить сотрудничество", callback_data="partnership"),
     )
-    keyboard.row(InlineKeyboardButton("Я передумал регистрироваться", callback_data="cmd_START"))
+    keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+    if os.path.isfile(acho_info_file):
+        with io.open(acho_info_file, encoding="utf-8") as f:
+            acho_info = f.read()
+    else:
+        acho_info = DEFAULT_ACHO_INFO
+        add_log(
+            msg_text=f"{acho_info_file}: file not found. Using default message",
+            msg_type="warning",
+            log_file=log_file,
+        )
     bot.edit_message_text(
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
-        text="Для получения доступа на наш канал Вам необходимо ознакомиться с \
-правилами канала и рассказать немного о себе. ",
+        text=acho_info,
+        reply_markup=keyboard,
+        parse_mode="html",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("register_patient"))
+def register_patient_menu(call: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.add(
+        InlineKeyboardButton("Библиотека материалов по ахондроплазии", callback_data="acho_library"),
+        InlineKeyboardButton("Задать вопрос", callback_data="ask_question"),
+        InlineKeyboardButton("Присоединиться к пациентскому реестру", callback_data="join_patient_registry"),
+        InlineKeyboardButton(
+            "Подписаться на новостной канал",
+            callback_data="join_news_channel",
+            url="https://t.me/achondroplasia_ru",
+        ),
+        InlineKeyboardButton(
+            "Вся информация, новости,проекты - на сайте achondroplasia.ru",
+            callback_data="join_news_channel",
+            url="https://achondroplasia.ru/",
+        ),
+        InlineKeyboardButton("Присоединиться к пациентским чатам", callback_data="join_patient_chats"),
+    )
+    keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+    if os.path.isfile(patient_register_file):
+        with io.open(patient_register_file, encoding="utf-8") as f:
+            patient_register_msg = f.read()
+    else:
+        patient_register_msg = DEFAULT_PATIENT_REGISTER_MSG
+        add_log(
+            msg_text=f"{patient_register_file}: file not found. Using default message",
+            msg_type="warning",
+            log_file=log_file,
+        )
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text=patient_register_msg,
         reply_markup=keyboard,
     )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("acho_library"))
+def acho_library(call: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.row(InlineKeyboardButton("Назад", callback_data="register_patient_menu"))
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text="Пока не понятно что тут",
+        reply_markup=keyboard,
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("join_patient_registry"))
+def join_patient_registry(call: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.row(InlineKeyboardButton("Назад", callback_data="register_patient_menu"))
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text="Пока не понятно что тут",
+        reply_markup=keyboard,
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("join_patient_chats"))
+def join_patient_chats(call: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.add(
+        InlineKeyboardButton(
+            "Я ознакомился с правилами и принимаю их",
+            callback_data="agree_rules",
+            url=google_forms_link,
+        ),
+        InlineKeyboardButton("Назад", callback_data="register_patient_menu"),
+    )
+    keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+
+    if os.path.isfile(rules_file):
+        with io.open(rules_file, encoding="utf-8") as f:
+            rules_text = f.read()
+    else:
+        rules_text = "Правила пока не указаны, но скоро они появятся"
+        add_log(
+            msg_text=f"{rules_file}: file not found. Check your {curr_settings}", msg_type="warning", log_file=log_file
+        )
+    if rules_text:
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=rules_text,
+            reply_markup=keyboard,
+        )
+    else:
+        rules_text = "Правила пока не указаны, но скоро они появятся"
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=rules_text,
+            reply_markup=keyboard,
+        )
+        add_log(msg_text=f"{rules_file}: file is empty", log_file=log_file)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cmd_"))
@@ -209,6 +360,8 @@ def start_question(call: CallbackQuery):
 
 
 def send_question(message):
+    keyboard = InlineKeyboardMarkup()
+    keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
     for id in MANAGEMENT_IDS.split(","):
         bot.forward_message(id, message.chat.id, message.id)
         # b_mes = bot.send_message(
@@ -220,6 +373,7 @@ def send_question(message):
         message.chat.id,
         "Ваш вопрос отправлен нашему менеджеру. Очень скоро Вам ответят \
 сюда или одним из предоставленных вами способов",
+        reply_markup=keyboard,
     )
 
 
