@@ -28,6 +28,8 @@ default_google_forms_link = "https://workspace.google.com/intl/ru/products/forms
 start_text_file = "start_text.txt"
 acho_info_file = "acho_info.txt"
 patient_register_file = "patient_register_start_msg.txt"
+patient_register_agree_msg_file = "patient_register_agree_msg.txt"
+specialist_register_file = "specialist_register.txt"
 DEFAULT_START_TEXT = "<b>Выберите интересующую вас опцию</b>"
 DEFAULT_ACHO_INFO = "<b>Ахондроплазия</b> - это известное с древности наследственное заболевание человека, \
 проявляющееся в нарушении процессов энхондрального окостенения (вероятно, в результате дефектов \
@@ -36,6 +38,8 @@ DEFAULT_ACHO_INFO = "<b>Ахондроплазия</b> - это известно
 врождённых аномалий, в частности врождённого стеноза позвоночного канала"
 DEFAULT_PATIENT_REGISTER_MSG = "Мы будем рады принять и предложить разные программы и всестороннюю помощь и поддержку. \
 Приглашаем присоединиться к чатам пациентского общения и к информационному каналу организации «Немаленькие люди»"
+DEFAULT_PATIENT_REGISTER_AGREE_MSG = "Мы рады, что вы разделяете правила общения «Немаленьких людей»"
+DEFAULT_SPECIALIST_REGISTER_MSG = ""
 
 
 def add_log(msg_text, msg_type="info", log_file=default_log_file):
@@ -121,8 +125,8 @@ def start_cmd(message):
     # start_keyboard = ReplyKeyboardMarkup()
     start_keyboard.add(
         InlineKeyboardButton("Что такое ахондроплазия", callback_data="about_acho"),
-        InlineKeyboardButton("Регистрация новых пациентов", callback_data="register_patient"),
-        InlineKeyboardButton("Регистрация специалистов", callback_data="register_specialist"),
+        InlineKeyboardButton("Регистрация новых пациентов", callback_data="register_patient_menu"),
+        InlineKeyboardButton("Регистрация специалистов", callback_data="register_specialist_menu"),
         InlineKeyboardButton("Подписаться на новостной канал", callback_data="join_news_channel"),
         # InlineKeyboardButton("Вступить в группу", callback_data="join_group_btn"),
         InlineKeyboardButton("Задать вопрос", callback_data="ask_question"),
@@ -195,7 +199,7 @@ def about_acho(call: CallbackQuery):
     )
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("register_patient"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("register_patient_menu"))
 def register_patient_menu(call: CallbackQuery):
     keyboard = InlineKeyboardMarkup(row_width=1)
     keyboard.add(
@@ -264,7 +268,6 @@ def join_patient_chats(call: CallbackQuery):
         InlineKeyboardButton(
             "Я ознакомился с правилами и принимаю их",
             callback_data="agree_rules",
-            url=google_forms_link,
         ),
         InlineKeyboardButton("Назад", callback_data="register_patient_menu"),
     )
@@ -284,6 +287,7 @@ def join_patient_chats(call: CallbackQuery):
             message_id=call.message.message_id,
             text=rules_text,
             reply_markup=keyboard,
+            parse_mode="html",
         )
     else:
         rules_text = "Правила пока не указаны, но скоро они появятся"
@@ -292,8 +296,140 @@ def join_patient_chats(call: CallbackQuery):
             message_id=call.message.message_id,
             text=rules_text,
             reply_markup=keyboard,
+            parse_mode="html",
         )
         add_log(msg_text=f"{rules_file}: file is empty", log_file=log_file)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("agree_rules"))
+def get_link_to_google_forms(call: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.add(
+        InlineKeyboardButton(
+            "Заполнить анкету",
+            callback_data="enter_data_for_google_form",
+            url=google_forms_link,
+        ),
+    )
+    keyboard.row(
+        InlineKeyboardButton("Назад", callback_data="register_patient_menu"),
+        InlineKeyboardButton("В начало", callback_data="cmd_START"),
+    )
+
+    if os.path.isfile(patient_register_agree_msg_file):
+        with io.open(patient_register_agree_msg_file, encoding="utf-8") as f:
+            agree_msg = f.read()
+    else:
+        agree_msg = DEFAULT_PATIENT_REGISTER_AGREE_MSG
+        add_log(
+            msg_text=f"{patient_register_agree_msg_file}: file not found. Using default message",
+            msg_type="warning",
+            log_file=log_file,
+        )
+    if agree_msg:
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=agree_msg,
+            reply_markup=keyboard,
+            parse_mode="html",
+        )
+    else:
+        agree_msg = DEFAULT_PATIENT_REGISTER_AGREE_MSG
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=agree_msg,
+            reply_markup=keyboard,
+            parse_mode="html",
+        )
+        add_log(msg_text=f"{agree_msg}: file is empty", log_file=log_file)
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+@bot.callback_query_handler(func=lambda call: call.data.startswith("register_specialist_menu"))
+def register_specialist_menu(call: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.add(
+        InlineKeyboardButton("Библиотека материалов по ахондроплазии", callback_data="acho_library"),
+        InlineKeyboardButton("Задать вопрос", callback_data="ask_question"),
+        InlineKeyboardButton("Внести данные в реестр специалистов", callback_data="add_data_specialist_registry"),
+        InlineKeyboardButton(
+            "Подписаться на новостной канал",
+            callback_data="join_news_channel",
+            url="https://t.me/achondroplasia_ru",
+        ),
+        InlineKeyboardButton(
+            "Вся информация, новости,проекты - на сайте achondroplasia.ru",
+            callback_data="join_news_channel",
+            url="https://achondroplasia.ru/",
+        ),
+        InlineKeyboardButton("Подписаться на рассылку новостей: оставить email", callback_data="subscribe"),
+    )
+    keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+    if os.path.isfile(specialist_register_file):
+        with io.open(specialist_register_file, encoding="utf-8") as f:
+            specialist_register_msg = f.read()
+    else:
+        specialist_register_msg = DEFAULT_SPECIALIST_REGISTER_MSG
+        add_log(
+            msg_text=f"{specialist_register_file}: file not found. Using default message",
+            msg_type="warning",
+            log_file=log_file,
+        )
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text=specialist_register_msg,
+        reply_markup=keyboard,
+        parse_mode="html",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("add_data_specialist_registry"))
+def add_data_specialist_registry(call: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.row(InlineKeyboardButton("Назад", callback_data="register_specialist_menu"))
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text="Пока не понятно что тут",
+        reply_markup=keyboard,
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("subscribe"))
+def subscribe_enter_email(call: CallbackQuery):
+    msg_instance = bot.send_message(
+        chat_id=call.message.chat.id,
+        text="Введите email",
+    )
+    bot.register_next_step_handler(msg_instance, subscribe_check_email)
+
+
+def subscribe_check_email(message):
+    if validators.email(message.text):
+        # for id in MANAGEMENT_IDS.split(","):
+        #     bot.send_message(
+        #         id,
+        #         f"Новая заявка на вступление в группу \n{dict_to_formatstr(user_data_for_join[message.chat.id])}",
+        #         parse_mode="html",
+        #     )
+        keyboard = InlineKeyboardMarkup()
+        keyboard.row(
+            InlineKeyboardButton("В начало", callback_data="cmd_START"),
+            InlineKeyboardButton("Назад", callback_data="register_specialist_menu")
+        )
+        bot.send_message(
+            message.chat.id,
+            "Вы подписались на регулярную рассылку новостей об ахондроплазии и других скелетных дисплазиях \
+(письма приходят не чаще 1 раза в месяц). !!! СЕРВИС ВРЕМЕННО НЕ РАБОТАЕТ !!!",
+            reply_markup=keyboard,
+        )
+    else:
+        bot.send_message(message.chat.id, "Не корректный email!! Попробуйте ввести ещё раз! (example@mail.ru)")
+        bot.register_next_step_handler(message, subscribe_check_email)
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cmd_"))
