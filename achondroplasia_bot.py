@@ -16,20 +16,22 @@ import validators
 import io
 
 
-DEV_SETTINGS = "./dev_settings.ini"
-SETTINGS = "./settings.ini"
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+config = configparser.ConfigParser()
+DEV_SETTINGS = os.path.join(BASE_DIR, "config/dev_settings.ini")
+SETTINGS = os.path.join(BASE_DIR, "config/settings.ini")
 ASK_Q_TEXT = "Задайте интересующий Вас вопрос в одном сообщении.\n \
 В нём же можете оставить свои контактные данные для получения ответа (email, моб.телефон и пр.) \n \
 Также ответ придёт Вам в этот чат"
 curr_settings = ""
-default_log_file = "bot.log"
-default_rules_file = "rules.txt"
+log_file = os.path.join(BASE_DIR, "logs/bot.log")
+rules_file = os.path.join(BASE_DIR, "messages/rules.txt")
 default_google_forms_link = "https://workspace.google.com/intl/ru/products/forms/"
-start_text_file = "start_text.txt"
-acho_info_file = "acho_info.txt"
-patient_register_file = "patient_register_start_msg.txt"
-patient_register_agree_msg_file = "patient_register_agree_msg.txt"
-specialist_register_file = "specialist_register.txt"
+start_text_file = os.path.join(BASE_DIR, "messages/start_text.txt")
+acho_info_file = os.path.join(BASE_DIR, "messages/acho_info.txt")
+patient_register_file = os.path.join(BASE_DIR, "messages/patient_register_start_msg.txt")
+patient_register_agree_msg_file = os.path.join(BASE_DIR, "messages/patient_register_agree_msg.txt")
+specialist_register_file = os.path.join(BASE_DIR, "messages/specialist_register.txt")
 DEFAULT_START_TEXT = "<b>Выберите интересующую вас опцию</b>"
 DEFAULT_ACHO_INFO = "<b>Ахондроплазия</b> - это известное с древности наследственное заболевание человека, \
 проявляющееся в нарушении процессов энхондрального окостенения (вероятно, в результате дефектов \
@@ -42,7 +44,7 @@ DEFAULT_PATIENT_REGISTER_AGREE_MSG = "Мы рады, что вы разделя�
 DEFAULT_SPECIALIST_REGISTER_MSG = ""
 
 
-def add_log(msg_text, msg_type="info", log_file=default_log_file):
+def add_log(msg_text, msg_type="info", log_file=log_file):
     with io.open(log_file, "a", encoding="utf-8") as f:
         record = f'\n[{datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")}] {msg_type.upper()}: {msg_text}'
         f.write(record)
@@ -55,16 +57,8 @@ if os.path.isfile(DEV_SETTINGS):
 else:
     config.read(SETTINGS)
     curr_settings = SETTINGS
-try:
-    log_file = config["BotData"]["log_file"]
-except Exception:
-    log_file = default_log_file
 if not os.path.isfile(log_file):
     open(log_file, "w+")
-try:
-    rules_file = config["BotData"]["rules_file"]
-except Exception:
-    rules_file = default_rules_file
 if not os.path.isfile(rules_file):
     open(rules_file, "w+")
 try:
@@ -409,12 +403,6 @@ def subscribe_enter_email(call: CallbackQuery):
 
 def subscribe_check_email(message):
     if validators.email(message.text):
-        # for id in MANAGEMENT_IDS.split(","):
-        #     bot.send_message(
-        #         id,
-        #         f"Новая заявка на вступление в группу \n{dict_to_formatstr(user_data_for_join[message.chat.id])}",
-        #         parse_mode="html",
-        #     )
         keyboard = InlineKeyboardMarkup()
         keyboard.row(
             InlineKeyboardButton("В начало", callback_data="cmd_START"),
@@ -500,11 +488,6 @@ def send_question(message):
     keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
     for id in MANAGEMENT_IDS.split(","):
         bot.forward_message(id, message.chat.id, message.id)
-        # b_mes = bot.send_message(
-        #     id,
-        #     f'<b>Новый вопрос от @{message.json["from"]["username"]}!</b> \n"{message.text}"\n',
-        #     parse_mode="html",
-        # )
     bot.send_message(
         message.chat.id,
         "Ваш вопрос отправлен нашему менеджеру. Очень скоро Вам ответят \
@@ -513,7 +496,6 @@ def send_question(message):
     )
 
 
-# @bot.message_handler(func=lambda call: call.reply_to_message)
 @bot.channel_post_handler(func=lambda message: message.reply_to_message is not None)
 def send_answer(message):
     if message.reply_to_message.forward_from:
