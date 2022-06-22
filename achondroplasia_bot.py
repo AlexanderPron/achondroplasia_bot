@@ -1,4 +1,3 @@
-from genericpath import isfile
 import telebot
 from telebot.types import (
     ReplyKeyboardRemove,
