@@ -1,3 +1,4 @@
+from genericpath import isfile
 import telebot
 from telebot.types import (
     ReplyKeyboardRemove,
@@ -58,9 +59,9 @@ else:
     config.read(SETTINGS)
     curr_settings = SETTINGS
 if not os.path.isfile(log_file):
-    open(log_file, "w+")
+    open(log_file, "w")
 if not os.path.isfile(rules_file):
-    open(rules_file, "w+")
+    open(rules_file, "w")
 try:
     TOKEN = config["Telegram"]["token"]
     MANAGEMENT_IDS = config["Telegram"]["management_ids"]
