@@ -20,13 +20,14 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 config = configparser.ConfigParser()
 DEV_SETTINGS = os.path.join(BASE_DIR, "config/dev_settings.ini")
 SETTINGS = os.path.join(BASE_DIR, "config/settings.ini")
-ASK_Q_TEXT = "Задайте интересующий Вас вопрос в одном сообщении.\n \
-В нём же можете оставить свои контактные данные для получения ответа (email, моб.телефон и пр.) \n \
+ASK_Q_TEXT = "Задайте интересующий Вас вопрос в одном сообщении.\n\
+В нём же можете оставить дополнительные контактные данные для получения ответа\n\
 Также ответ придёт Вам в этот чат"
 curr_settings = ""
 log_file = os.path.join(BASE_DIR, "logs/bot.log")
 rules_file = os.path.join(BASE_DIR, "messages/rules.txt")
 default_google_forms_link = "https://workspace.google.com/intl/ru/products/forms/"
+default_donate_url = "https://achondroplasia.ru/campaign/donate/"
 start_text_file = os.path.join(BASE_DIR, "messages/start_text.txt")
 acho_info_file = os.path.join(BASE_DIR, "messages/acho_info.txt")
 patient_register_file = os.path.join(BASE_DIR, "messages/patient_register_start_msg.txt")
@@ -71,10 +72,18 @@ except Exception:
 try:
     if config["Google"]["forms_link"]:
         google_forms_link = config["Google"]["forms_link"]
+        donate_url = config["BotData"]["donate_url"]
     else:
         google_forms_link = default_google_forms_link
 except Exception:
     google_forms_link = default_google_forms_link
+try:
+    if config["BotData"]["donate_url"]:
+        donate_url = config["BotData"]["donate_url"]
+    else:
+        donate_url = default_donate_url
+except Exception:
+    donate_url = default_donate_url
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
 logger = telebot.logger
 telebot.logger.setLevel(logging.WARNING)
@@ -118,16 +127,24 @@ def start_cmd(message):
     start_keyboard = InlineKeyboardMarkup(row_width=1)
     # start_keyboard = ReplyKeyboardMarkup()
     start_keyboard.add(
-        InlineKeyboardButton("Что такое ахондроплазия", callback_data="about_acho"),
-        InlineKeyboardButton("Регистрация новых пациентов", callback_data="register_patient_menu"),
-        InlineKeyboardButton("Регистрация специалистов", callback_data="register_specialist_menu"),
-        InlineKeyboardButton("Подписаться на новостной канал", callback_data="join_news_channel"),
+        # InlineKeyboardButton("Что такое ахондроплазия", callback_data="about_acho"),
+        # InlineKeyboardButton("Регистрация новых пациентов", callback_data="register_patient_menu"),
+        # InlineKeyboardButton("Регистрация специалистов", callback_data="register_specialist_menu"),
+        InlineKeyboardButton(
+            "Перейти на сайт achondroplasia.ru",
+            callback_data="join_news_channel",
+            url="https://achondroplasia.ru/",
+        ),
+        InlineKeyboardButton(
+            "Подписаться на новостной канал",
+            callback_data="join_news_channel",
+            url="https://t.me/achondroplasia_ru",
+        ),
         # InlineKeyboardButton("Вступить в группу", callback_data="join_group_btn"),
         InlineKeyboardButton("Задать вопрос", callback_data="ask_question"),
         InlineKeyboardButton("Отправить контент для публикации", callback_data="send_content"),
-        InlineKeyboardButton("Сделать пожертвование", callback_data="donate"),
-        InlineKeyboardButton("Предложить сотрудничество", callback_data="partnership"),
-        # KeyboardButton("Задать вопрос"),
+        InlineKeyboardButton("Сделать пожертвование", callback_data="donate", url=donate_url),
+        # InlineKeyboardButton("Предложить сотрудничество", callback_data="partnership"),
     )
     if message.from_user.is_bot:
         bot.send_message(
@@ -406,7 +423,7 @@ def subscribe_check_email(message):
         keyboard = InlineKeyboardMarkup()
         keyboard.row(
             InlineKeyboardButton("В начало", callback_data="cmd_START"),
-            InlineKeyboardButton("Назад", callback_data="register_specialist_menu")
+            InlineKeyboardButton("Назад", callback_data="register_specialist_menu"),
         )
         bot.send_message(
             message.chat.id,
@@ -417,6 +434,8 @@ def subscribe_check_email(message):
     else:
         bot.send_message(message.chat.id, "Не корректный email!! Попробуйте ввести ещё раз! (example@mail.ru)")
         bot.register_next_step_handler(message, subscribe_check_email)
+
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -478,9 +497,18 @@ def end_reg(message):
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ask_question"))
-def start_question(call: CallbackQuery):
-    msg_instance = bot.send_message(call.message.chat.id, ASK_Q_TEXT)
-    bot.register_next_step_handler(msg_instance, send_question)
+def ask_email(call):
+    msg_instance = bot.send_message(call.message.chat.id, "Укажите ваш email")
+    bot.register_next_step_handler(msg_instance, start_question)
+
+
+def start_question(message):
+    if validators.email(message.text):
+        msg_instance = bot.send_message(message.chat.id, ASK_Q_TEXT)
+        bot.register_next_step_handler(msg_instance, send_question)
+    else:
+        bot.send_message(message.chat.id, "Не корректный email!! Попробуйте ввести ещё раз! (example@mail.ru)")
+        bot.register_next_step_handler(message, start_question)
 
 
 def send_question(message):
