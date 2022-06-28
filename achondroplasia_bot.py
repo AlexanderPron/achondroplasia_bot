@@ -527,8 +527,30 @@ def send_question(message):
 @bot.channel_post_handler(func=lambda message: message.reply_to_message is not None)
 def send_answer(message):
     if message.reply_to_message.forward_from:
-        answer = f"На ваш вопрос {message.reply_to_message.text} дан ответ \n{message.text}"
+        answer = f"На ваш вопрос {message.reply_to_message.text} дан ответ\n{message.text}"
         bot.send_message(chat_id=message.reply_to_message.forward_from.id, text=answer)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("send_content"))
+def send_content(call):
+    msg_instance = bot.send_message(call.message.chat.id, "Прикрепите контент")  # TODO Исправить сообщение
+    bot.register_next_step_handler(msg_instance, get_content)
+
+
+@bot.message_handler(content_types=["document", "audio", "photo", "video", "video_note", "voice"])
+def get_content(message):
+    print(message)
+    keyboard = InlineKeyboardMarkup()
+    keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+    for id in MANAGEMENT_IDS.split(","):
+        bot.forward_message(id, message.chat.id, message.id)
+    bot.send_message(
+        message.chat.id,
+        "Спасибо за то, что поделились с нами этой информацией!\
+Контент отправлен нашему менеджеру. После проверки его содержимого мы опубликуем информацию на нашем информационном \
+портале и в группе telegram",
+        reply_markup=keyboard,
+    )
 
 
 def main():
