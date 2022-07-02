@@ -552,11 +552,18 @@ def send_answer(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("send_content"))
 def send_content(call):
     msg_instance = bot.send_message(call.message.chat.id, "Прикрепите контент")  # TODO Исправить сообщение
+    # print("1 =========================================================")
+    # print(call.message)
+    # print("2 =========================================================")
+    # print(msg_instance)
+    # print("3 =========================================================")
+    # if msg_instance.text == "Прикрепите контент":
     bot.register_next_step_handler(msg_instance, get_content)
 
 
 def get_content(message):
     if message.content_type in ["document", "audio", "photo", "video", "video_note", "voice"]:
+        print(message)
         keyboard = InlineKeyboardMarkup()
         keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
         for id in MANAGEMENT_IDS.split(","):
@@ -574,6 +581,13 @@ def get_content(message):
             reply_markup=keyboard,
         )
     else:
+        keyboard = InlineKeyboardMarkup()
+        keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+        bot.send_message(
+            message.chat.id,
+            'Если Вы передумали отправлять контент, то нажмите "В начало" или прикрепите файлы',
+            reply_markup=keyboard,
+        )
         bot.register_next_step_handler(message, get_content)
 
 
