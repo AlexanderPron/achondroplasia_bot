@@ -551,7 +551,10 @@ def send_answer(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("send_content"))
 def send_content(call):
-    msg_instance = bot.send_message(call.message.chat.id, "Прикрепите контент")  # TODO Исправить сообщение
+    msg_instance = bot.send_message(
+        call.message.chat.id,
+        "Прикрепите контент. ВНИМАНИЕ! В данный момент можно передавать только по одному файлу",
+    )  # TODO Исправить сообщение и сделать передачу нескольких файлов
     # print("1 =========================================================")
     # print(call.message)
     # print("2 =========================================================")
@@ -563,9 +566,9 @@ def send_content(call):
 
 def get_content(message):
     if message.content_type in ["document", "audio", "photo", "video", "video_note", "voice"]:
-        print(message)
         keyboard = InlineKeyboardMarkup()
         keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+        keyboard.row(InlineKeyboardButton("Передать ещё", callback_data="send_content"))
         for id in MANAGEMENT_IDS.split(","):
             bot.copy_message(
                 id,
