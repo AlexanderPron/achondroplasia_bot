@@ -1,3 +1,5 @@
+from inspect import getfile
+from time import sleep
 import telebot
 from telebot.types import (
     ReplyKeyboardRemove,
@@ -540,7 +542,7 @@ def send_question(message, user_email):
 @bot.channel_post_handler(func=lambda message: message.reply_to_message is not None)
 def send_answer(message):
     if message.reply_to_message.forward_from:
-        answer = f"Вы задавали вопрос: \n<code>{message.reply_to_message.text}</code>\nОтвет менеджера:\n \
+        answer = f"Вы задавали вопрос: \n<code>{message.reply_to_message.text}</code>\nОтвет менеджера:\n\
 <b>{message.text}</b>"
         bot.send_message(
             chat_id=message.reply_to_message.forward_from.id,
@@ -551,47 +553,49 @@ def send_answer(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("send_content"))
 def send_content(call):
-    msg_instance = bot.send_message(
+    bot.send_message(
         call.message.chat.id,
-        "Прикрепите контент. ВНИМАНИЕ! В данный момент можно передавать только по одному файлу",
-    )  # TODO Исправить сообщение и сделать передачу нескольких файлов
-    # print("1 =========================================================")
-    # print(call.message)
-    # print("2 =========================================================")
-    # print(msg_instance)
-    # print("3 =========================================================")
-    # if msg_instance.text == "Прикрепите контент":
-    bot.register_next_step_handler(msg_instance, get_content)
-
-
-def get_content(message):
-    if message.content_type in ["document", "audio", "photo", "video", "video_note", "voice"]:
-        keyboard = InlineKeyboardMarkup()
-        keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
-        keyboard.row(InlineKeyboardButton("Передать ещё", callback_data="send_content"))
-        for id in MANAGEMENT_IDS.split(","):
-            bot.copy_message(
-                id,
-                message.chat.id,
-                message.id,
-                caption=f"Новая заявка на размещение контента от @{message.from_user.username}",
-            )
-        bot.send_message(
-            message.chat.id,
-            "Спасибо за то, что поделились с нами этой информацией!\
-Контент отправлен нашему менеджеру. После проверки его содержимого мы опубликуем информацию на нашем \
+        "Спасибо за проявленный интерес!\nОтправьте контент в сообщении и \
+он будет перенаправлен нашему менеджеру. После проверки его содержимого мы опубликуем информацию на нашем \
 информационном портале и в группе telegram",
-            reply_markup=keyboard,
-        )
-    else:
-        keyboard = InlineKeyboardMarkup()
-        keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
-        bot.send_message(
+    )  # TODO Исправить сообщение и сделать передачу нескольких файлов
+    # bot.register_next_step_handler(msg_instance, get_content)
+
+
+@bot.message_handler(content_types=["document", "audio", "photo", "video", "video_note", "voice"])
+def get_content(message):
+    keyboard = InlineKeyboardMarkup()
+    keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+    keyboard.row(InlineKeyboardButton("Передать ещё", callback_data="send_content"))
+    for id in MANAGEMENT_IDS.split(","):
+        bot.copy_message(
+            id,
             message.chat.id,
-            'Если Вы передумали отправлять контент, то нажмите "В начало" или прикрепите файлы',
-            reply_markup=keyboard,
+            message.id,
+            caption=f"Новая заявка на размещение контента от @{message.from_user.username}",
         )
-        bot.register_next_step_handler(message, get_content)
+#     bot.send_message(
+#         message.chat.id,
+#         "Спасибо за то, что поделились с нами этой информацией!\
+# Контент отправлен нашему менеджеру. После проверки его содержимого мы опубликуем информацию на нашем \
+# информационном портале и в группе telegram",
+#         reply_markup=keyboard,
+#     )
+    # else:
+    #     keyboard = InlineKeyboardMarkup()
+    #     keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+    #     bot.send_message(
+    #         message.chat.id,
+    #         'Если Вы передумали отправлять контент, то нажмите "В начало" или прикрепите файлы',
+    #         reply_markup=keyboard,
+    #     )
+        # bot.register_next_step_handler(call.message, get_content)
+
+
+# Это надо проверять.. Идея в том, чтобы бот что-то писал если в чат/канал кто-то присоединился
+@bot.chat_join_request_handler(func=lambda call: call)
+def chat_join(call):
+    print(call)
 
 
 def main():
