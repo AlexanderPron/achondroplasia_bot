@@ -564,16 +564,30 @@ def send_content(call):
 
 @bot.message_handler(content_types=["document", "audio", "photo", "video", "video_note", "voice"])
 def get_content(message):
-    keyboard = InlineKeyboardMarkup()
-    keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
-    keyboard.row(InlineKeyboardButton("Передать ещё", callback_data="send_content"))
-    for id in MANAGEMENT_IDS.split(","):
-        bot.copy_message(
-            id,
-            message.chat.id,
-            message.id,
-            caption=f"Новая заявка на размещение контента от @{message.from_user.username}",
-        )
+    # keyboard = InlineKeyboardMarkup()
+    # keyboard.row(InlineKeyboardButton("В начало", callback_data="cmd_START"))
+    # keyboard.row(InlineKeyboardButton("Передать ещё", callback_data="send_content"))
+    content_info = ""
+    if message.caption:
+        content_info = message.caption
+        for id in MANAGEMENT_IDS.split(","):
+            bot.copy_message(
+                id,
+                message.chat.id,
+                message.id,
+                caption=f"Новая заявка на размещение контента от @{message.from_user.username}\n<b>Описание:</b>\n\
+    {content_info}",
+                parse_mode="html",
+            )
+    else:
+        for id in MANAGEMENT_IDS.split(","):
+            bot.copy_message(
+                id,
+                message.chat.id,
+                message.id,
+                caption=f"Новая заявка на размещение контента от @{message.from_user.username}",
+                parse_mode="html",
+            )
 #     bot.send_message(
 #         message.chat.id,
 #         "Спасибо за то, что поделились с нами этой информацией!\
