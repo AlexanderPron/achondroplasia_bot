@@ -576,7 +576,7 @@ def get_content(message):
                 message.chat.id,
                 message.id,
                 caption=f"Новая заявка на размещение контента от @{message.from_user.username}\n<b>Описание:</b>\n\
-    {content_info}",
+{content_info}",
                 parse_mode="html",
             )
     else:
